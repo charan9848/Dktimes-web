@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { getArticleById, getLatestNews, getLatestShorts } from '@/lib/news-service';
 import CommentSection from '@/components/CommentSection';
 import ArticleClientActions from '@/components/ArticleClientActions';
-import { formatTimeAgo, formatEditorialDate } from '@/lib/date-utils';
+import { formatEditorialDate } from '@/lib/date-utils';
+import TimeAgo from '@/components/TimeAgo';
 import {
   Clock,
   ArrowLeft,
@@ -16,6 +17,9 @@ import {
   Share2,
   Tag,
 } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -43,22 +47,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           alt: article.title,
         },
       ],
-      type: 'article',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: article.title,
-      description: article.summary,
-      images: [article.imageUrl],
     },
   };
 }
 
-export default async function ArticlePage({ params }: Props) {
+export default async function ArticleDetailPage({ params }: Props) {
   const { id } = await params;
-  const [article, latestNews, shorts] = await Promise.all([
+
+  // Parallel fetch: current article, trending stories for sidebar, shorts
+  const [article, latestStories, shorts] = await Promise.all([
     getArticleById(id),
-    getLatestNews(8),
+    getLatestNews(12),
     getLatestShorts(4),
   ]);
 
@@ -66,132 +65,97 @@ export default async function ArticlePage({ params }: Props) {
     notFound();
   }
 
-  // Filter out current story from sidebar and related
-  const sidebarStories = latestNews.filter((n) => n.id !== article.id).slice(0, 5);
-  const bottomRelated = latestNews.filter((n) => n.id !== article.id).slice(5, 9);
-
-  // Check if content is distinct from summary to avoid exact repetition
-  const hasDistinctContent =
-    article.content &&
-    article.content.trim().replace(/\s+/g, '') !== article.summary?.trim().replace(/\s+/g, '');
-
-  // JSON-LD structured data for Google News
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'NewsArticle',
-    headline: article.title,
-    image: [article.imageUrl],
-    datePublished: article.publishedAt,
-    dateModified: article.updatedAt || article.publishedAt,
-    author: [
-      {
-        '@type': 'Person',
-        name: article.author || 'DK Times Editorial',
-      },
-    ],
-    publisher: {
-      '@type': 'Organization',
-      name: 'DK Times',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://dktimesnews.com/assets/logo.jpg',
-      },
-    },
-    description: article.summary,
-  };
+  // Sidebar trending stories (excluding current article)
+  const sidebarStories = latestStories.filter((s) => s.id !== article.id).slice(0, 5);
+  // Bottom related stories
+  const bottomRelated = latestStories.filter((s) => s.id !== article.id).slice(5, 9);
 
   return (
     <main className="mx-auto max-w-[1400px] px-4 md:px-6 py-6 md:py-8">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-
-      {/* Breadcrumb Navigation */}
-      <nav className="flex items-center gap-2 text-xs text-[#6F675C] dark:text-slate-400 mb-6 font-medium">
-        <Link href="/" className="hover:text-[#1C3D5A] dark:hover:text-sky-400 transition">Home</Link>
-        <ChevronRight size={13} className="text-[#6F675C]/50 dark:text-slate-500" />
+      {/* Editorial Breadcrumbs */}
+      <nav
+        aria-label="Breadcrumb"
+        className="flex items-center gap-1.5 text-xs text-[#6F675C] dark:text-slate-400 mb-6 font-medium"
+      >
+        <Link href="/" className="hover:text-[#1C3D5A] dark:hover:text-sky-400 transition">
+          Home
+        </Link>
+        <ChevronRight size={12} className="text-[#6F675C]/50" />
         <Link
-          href={`/news/${encodeURIComponent((article.category || 'news').toLowerCase())}`}
-          className="hover:text-[#1C3D5A] dark:hover:text-sky-400 capitalize transition"
+          href={`/news/${(article.category || 'news').toLowerCase()}`}
+          className="hover:text-[#1C3D5A] dark:hover:text-sky-400 transition capitalize"
         >
           {article.category || 'News'}
         </Link>
         {article.region && (
           <>
-            <ChevronRight size={13} className="text-[#6F675C]/50 dark:text-slate-500" />
-            <span className="capitalize">{article.region}</span>
+            <ChevronRight size={12} className="text-[#6F675C]/50" />
+            <span className="text-[#211D18] dark:text-slate-300 capitalize">{article.region}</span>
           </>
         )}
       </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* ================= MAIN ARTICLE COLUMN (8 COLS) ================= */}
-        <article className="lg:col-span-8 bg-[#FFFDF7] dark:bg-[#141414] rounded-2xl border border-[rgba(33,29,24,0.1)] dark:border-white/10 p-6 md:p-10 shadow-sm transition-colors">
+      {/* Main Grid: 8 Columns Article, 4 Columns Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+        {/* ================= LEFT MAIN ARTICLE (8 COLS) ================= */}
+        <article className="lg:col-span-8">
           {/* Category & Region Eyebrow */}
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <span className="bg-[#1C3D5A] dark:bg-sky-600 text-white text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded">
-              {article.category || 'News'}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="bg-[#1C3D5A] dark:bg-sky-600 text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded shadow-sm">
+              {article.category || 'Breaking'}
             </span>
             {article.region && (
-              <span className="bg-[#F5F1E8] dark:bg-white/10 text-[#1C3D5A] dark:text-sky-300 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded border border-[rgba(33,29,24,0.1)] dark:border-white/10">
+              <span className="bg-[#F5F1E8] dark:bg-white/10 text-[#1C3D5A] dark:text-sky-300 border border-[rgba(33,29,24,0.1)] dark:border-white/10 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
                 {article.region}
               </span>
             )}
-            {article.isBreaking && (
-              <span className="bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded animate-pulse">
-                Breaking Alert
-              </span>
-            )}
-            <span className="text-[11px] text-[#6F675C] dark:text-slate-400 ml-auto flex items-center gap-1 font-medium">
+            <span className="text-[11px] text-[#6F675C] dark:text-slate-400 flex items-center gap-1 font-medium ml-auto">
               <Clock size={12} /> 3 min read
             </span>
           </div>
 
-          {/* Article Main Headline */}
-          <h1 className="font-serif font-black text-2xl sm:text-3xl md:text-4xl lg:text-[40px] text-[#211D18] dark:text-white leading-[1.2] tracking-tight">
+          {/* Headline (Indian Broadsheet Typography) */}
+          <h1 className="font-serif font-black text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.2] text-[#211D18] dark:text-white tracking-[-0.02em]">
             {article.title}
           </h1>
 
-          {/* Lead Standfirst / Summary Deck */}
+          {/* Standfirst / Summary Deck */}
           {article.summary && (
-            <div className="my-5 p-4 rounded-xl bg-[#F5F1E8] dark:bg-white/5 border-l-4 border-[#1C3D5A] dark:border-sky-500 text-[#211D18] dark:text-slate-200 text-base md:text-lg leading-relaxed font-medium">
+            <p className="text-base sm:text-lg text-[#211D18]/90 dark:text-slate-300 leading-relaxed font-normal mt-4 p-4 rounded-xl bg-[#FFFDF7] dark:bg-[#141414] border-l-4 border-[#1C3D5A] dark:border-sky-500 shadow-sm">
               {article.summary}
+            </p>
+          )}
+
+          {/* Interactive Byline Bar: Like, Discuss, Save, Translate, Share */}
+          <ArticleClientActions article={article} />
+
+          {/* Featured Hero Image Frame */}
+          {article.imageUrl && (
+            <div className="my-6 rounded-2xl overflow-hidden border border-[rgba(33,29,24,0.1)] dark:border-white/10 shadow-sm bg-neutral-900">
+              <img
+                src={article.imageUrl}
+                alt={article.title}
+                className="w-full max-h-[520px] object-cover"
+                loading="eager"
+              />
+              <div className="p-3 bg-[#FFFDF7] dark:bg-[#141414] border-t border-[rgba(33,29,24,0.06)] dark:border-white/10 text-[11px] text-[#6F675C] dark:text-slate-400 flex justify-between items-center">
+                <span>Photo: DK Times Newsroom / {article.source || 'DK Times'}</span>
+                <span>{article.region ? `${article.region}, ` : ''}Telangana</span>
+              </div>
             </div>
           )}
 
-          {/* Author Byline Card & Interactive Actions Bar */}
-          <ArticleClientActions article={article} />
-
-          {/* Hero Featured Image — Clean Natural Aspect Ratio */}
-          {article.imageUrl && (
-            <figure className="my-6">
-              <div className="rounded-xl overflow-hidden border border-[rgba(33,29,24,0.1)] dark:border-white/10 bg-[#F5F1E8] dark:bg-black/50 shadow-sm">
-                <img
-                  src={article.imageUrl}
-                  alt={article.title}
-                  className="w-full h-auto max-h-[520px] object-cover object-top"
-                />
-              </div>
-              <figcaption className="text-[11px] text-[#6F675C] dark:text-slate-400 mt-2 px-1 flex items-center justify-between font-medium">
-                <span>Photo: DK Times Newsroom / {article.source || 'Editorial Desk'}</span>
-                <span>Hyderabad, Telangana</span>
-              </figcaption>
-            </figure>
-          )}
-
-          {/* Main Article Body */}
-          <div className="prose prose-lg max-w-none text-[#211D18] dark:text-slate-200 text-base md:text-lg leading-[1.75] font-normal my-8 space-y-5">
-            {hasDistinctContent ? (
+          {/* Article Full Body Content */}
+          <div className="prose dark:prose-invert max-w-none text-[#211D18] dark:text-slate-200 text-base sm:text-lg leading-[1.8] font-normal my-8 space-y-5">
+            {article.content ? (
               <div
-                dangerouslySetInnerHTML={{ __html: article.content }}
-                className="space-y-4"
+                dangerouslySetInnerHTML={{
+                  __html: article.content.replace(/\n\n/g, '<p class="my-4"></p>'),
+                }}
               />
             ) : (
               <div className="space-y-4">
-                <p>
-                  {article.summary}
-                </p>
+                <p>{article.summary}</p>
                 <p className="text-base text-[#6F675C] dark:text-slate-400">
                   మరిన్ని వివరాలు త్వరలో అప్‌డేట్ చేయబడతాయి. తాజా వార్తలు, ఎప్పటికప్పుడు బ్రేకింగ్ అప్‌డేట్స్ కోసం డికే టైమ్స్ యాప్‌ను డౌన్‌లోడ్ చేసుకోండి.
                 </p>
@@ -222,7 +186,7 @@ export default async function ArticlePage({ params }: Props) {
               ))}
           </div>
 
-          {/* Interactive Comment Section */}
+          {/* Live Interactive Comment Section */}
           <CommentSection articleId={article.id} />
         </article>
 
@@ -263,9 +227,12 @@ export default async function ArticlePage({ params }: Props) {
 
             <div className="space-y-4">
               {sidebarStories.map((story, i) => (
-                <div key={story.id} className="flex gap-3 group items-start">
-                  <span className="text-base font-serif font-black text-[#1C3D5A]/40 dark:text-sky-400/40 group-hover:text-[#1C3D5A] dark:group-hover:text-sky-400 transition shrink-0 mt-0.5">
-                    {String(i + 1).padStart(2, '0')}
+                <div
+                  key={story.id}
+                  className="flex items-start gap-3 pb-3 border-b border-[rgba(33,29,24,0.06)] dark:border-white/5 last:border-0 last:pb-0 group"
+                >
+                  <span className="font-serif font-black text-lg text-neutral-300 dark:text-neutral-700 group-hover:text-[#1C3D5A] dark:group-hover:text-sky-400 transition w-5 shrink-0">
+                    0{i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
                     <Link href={`/article/${story.id}`}>
@@ -276,7 +243,7 @@ export default async function ArticlePage({ params }: Props) {
                     <div className="flex items-center gap-2 text-[10px] text-[#6F675C] dark:text-slate-400 mt-1 font-medium">
                       <span>{story.category}</span>
                       <span>•</span>
-                      <span>{formatTimeAgo(story.publishedAt)}</span>
+                      <TimeAgo timestamp={story.publishedAt} />
                     </div>
                   </div>
                   {story.imageUrl && (
@@ -367,7 +334,7 @@ export default async function ArticlePage({ params }: Props) {
                     <span className="font-bold uppercase tracking-wider text-[#1C3D5A] dark:text-sky-400">
                       {r.category || 'News'}
                     </span>
-                    <span>{formatTimeAgo(r.publishedAt)}</span>
+                    <TimeAgo timestamp={r.publishedAt} />
                   </div>
                   <h4 className="font-serif font-bold text-sm text-[#211D18] dark:text-slate-100 group-hover:text-[#1C3D5A] dark:group-hover:text-sky-400 transition line-clamp-2 leading-snug mt-1">
                     {r.title}

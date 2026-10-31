@@ -6,14 +6,37 @@
 export function parseDate(dateInput: any): Date | null {
   if (!dateInput) return null;
   if (dateInput instanceof Date) return isNaN(dateInput.getTime()) ? null : dateInput;
-  if (typeof dateInput === 'number') return new Date(dateInput);
+  
+  if (typeof dateInput === 'number') {
+    // If it's in seconds (like 1793409840), convert to ms
+    if (dateInput < 10000000000) {
+      return new Date(dateInput * 1000);
+    }
+    return new Date(dateInput);
+  }
+  
   if (typeof dateInput === 'string') {
     const d = new Date(dateInput);
     if (!isNaN(d.getTime())) return d;
+    const num = Number(dateInput);
+    if (!isNaN(num)) {
+      if (num < 10000000000) return new Date(num * 1000);
+      return new Date(num);
+    }
   }
-  if (typeof dateInput === 'object' && dateInput.seconds) {
-    return new Date(dateInput.seconds * 1000);
+  
+  if (typeof dateInput === 'object') {
+    if (typeof dateInput.toDate === 'function') {
+      return dateInput.toDate();
+    }
+    if (typeof dateInput.seconds === 'number') {
+      return new Date(dateInput.seconds * 1000);
+    }
+    if (typeof dateInput._seconds === 'number') {
+      return new Date(dateInput._seconds * 1000);
+    }
   }
+  
   return null;
 }
 
@@ -24,7 +47,8 @@ export function formatTimeAgo(dateInput: any): string {
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (diffInSeconds < 60) {
+  // If clock drift or published within the last 90 seconds
+  if (diffInSeconds < 90) {
     return 'Just now';
   }
   const diffInMinutes = Math.floor(diffInSeconds / 60);
@@ -43,10 +67,10 @@ export function formatTimeAgo(dateInput: any): string {
     return `${diffInDays}d ago`;
   }
 
-  // Beyond a week, show clean Month Day, Year
+  // Beyond a week, show clean Indian editorial date
   return date.toLocaleDateString('en-IN', {
-    month: 'short',
     day: 'numeric',
+    month: 'short',
     year: 'numeric',
   });
 }

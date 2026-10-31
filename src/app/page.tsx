@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import BreakingTicker from '@/components/BreakingTicker';
+import TimeAgo from '@/components/TimeAgo';
 import {
   getBreakingNews,
   getLatestNews,
@@ -23,6 +24,9 @@ import {
   Newspaper,
   Compass,
 } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function HomePage() {
   const [breaking, allArticles, shorts, jobs, marketplace, posters] = await Promise.all([
@@ -113,7 +117,7 @@ export default async function HomePage() {
                     </span>
                     <span>•</span>
                     <span className="flex items-center gap-1 font-semibold text-[#211D18] dark:text-slate-200">
-                      <Clock size={12} /> {formatTimeAgo(leadArticle.publishedAt)}
+                      <Clock size={12} /> <TimeAgo timestamp={leadArticle.publishedAt} />
                     </span>
                     <span>•</span>
                     <span>{formatEditorialDate(leadArticle.publishedAt)}</span>
@@ -177,7 +181,7 @@ export default async function HomePage() {
                       <span className="font-bold uppercase tracking-[0.16em] text-[#1C3D5A] dark:text-sky-400">
                         {story.category || 'News'}
                       </span>
-                      <span>{formatTimeAgo(story.publishedAt)}</span>
+                      <TimeAgo timestamp={story.publishedAt} />
                     </div>
                     <Link href={`/article/${story.id}`}>
                       <h3 className="font-serif font-bold text-sm md:text-base leading-snug text-[#211D18] dark:text-white group-hover:text-[#1C3D5A] dark:group-hover:text-sky-400 transition line-clamp-2">
@@ -220,7 +224,7 @@ export default async function HomePage() {
                           {t.title}
                         </p>
                         <div className="text-[10px] text-[#6F675C] dark:text-slate-400 mt-1 font-medium">
-                          <span>{formatTimeAgo(t.publishedAt)}</span>
+                          <TimeAgo timestamp={t.publishedAt} />
                         </div>
                       </div>
                     </Link>
@@ -274,7 +278,7 @@ export default async function HomePage() {
                         <span className="font-bold uppercase tracking-wider text-[#1C3D5A] dark:text-sky-400">
                           {story.region || 'Telangana'}
                         </span>
-                        <span>{formatTimeAgo(story.publishedAt)}</span>
+                        <TimeAgo timestamp={story.publishedAt} />
                       </div>
                       <Link href={`/article/${story.id}`}>
                         <h3 className="font-serif font-bold text-sm text-[#211D18] dark:text-slate-100 group-hover:text-[#1C3D5A] dark:group-hover:text-sky-400 transition line-clamp-2 leading-snug">
@@ -347,7 +351,7 @@ export default async function HomePage() {
                         <span className="font-bold uppercase tracking-wider text-[#1C3D5A] dark:text-sky-400">
                           {story.region || 'Andhra Pradesh'}
                         </span>
-                        <span>{formatTimeAgo(story.publishedAt)}</span>
+                        <TimeAgo timestamp={story.publishedAt} />
                       </div>
                       <Link href={`/article/${story.id}`}>
                         <h3 className="font-serif font-bold text-sm text-[#211D18] dark:text-slate-100 group-hover:text-[#1C3D5A] dark:group-hover:text-sky-400 transition line-clamp-2 leading-snug">
@@ -420,7 +424,7 @@ export default async function HomePage() {
                         <span className="font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
                           {story.category || 'Politics'}
                         </span>
-                        <span>{formatTimeAgo(story.publishedAt)}</span>
+                        <TimeAgo timestamp={story.publishedAt} />
                       </div>
                       <Link href={`/article/${story.id}`}>
                         <h3 className="font-serif font-bold text-sm text-[#211D18] dark:text-slate-100 group-hover:text-[#1C3D5A] dark:group-hover:text-sky-400 transition line-clamp-2 leading-snug">
@@ -468,7 +472,7 @@ export default async function HomePage() {
               href="/news"
               className="inline-flex items-center gap-2 bg-[#1C3D5A] hover:bg-[#142A3E] dark:bg-sky-600 dark:hover:bg-sky-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition shrink-0"
             >
-              Browse All News Archive <ArrowRight size={14} />
+              Browse All 500 Stories Archive <ArrowRight size={14} />
             </Link>
           </div>
 
@@ -492,7 +496,7 @@ export default async function HomePage() {
                       <span className="font-bold uppercase tracking-wider text-[#1C3D5A] dark:text-sky-400">
                         {story.region || story.category || 'News'}
                       </span>
-                      <span>{formatTimeAgo(story.publishedAt)}</span>
+                      <TimeAgo timestamp={story.publishedAt} />
                     </div>
                     <Link href={`/article/${story.id}`}>
                       <h3 className="font-serif font-bold text-base text-[#211D18] dark:text-slate-100 group-hover:text-[#1C3D5A] dark:group-hover:text-sky-400 transition line-clamp-2 leading-snug">
