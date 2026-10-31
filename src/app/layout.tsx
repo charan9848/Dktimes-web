@@ -5,6 +5,8 @@ import Header from '@/components/Header';
 import BreakingTicker from '@/components/BreakingTicker';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import NavigationProgressBar from '@/components/NavigationProgressBar';
+import { Suspense } from 'react';
 import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { BookmarkProvider } from '@/context/BookmarkContext';
@@ -59,6 +61,9 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <BookmarkProvider>
+              <Suspense fallback={null}>
+                <NavigationProgressBar />
+              </Suspense>
               <Header />
               <BreakingTicker />
               <Navbar />
