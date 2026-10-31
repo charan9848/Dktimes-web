@@ -47,8 +47,8 @@ export function formatTimeAgo(dateInput: any): string {
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  // If clock drift or published within the last 90 seconds
-  if (diffInSeconds < 90) {
+  // If future timestamp or published within the last 90 seconds
+  if (diffInSeconds <= 90) {
     return 'Just now';
   }
   const diffInMinutes = Math.floor(diffInSeconds / 60);
@@ -76,8 +76,14 @@ export function formatTimeAgo(dateInput: any): string {
 }
 
 export function formatEditorialDate(dateInput: any): string {
-  const date = parseDate(dateInput);
+  let date = parseDate(dateInput);
   if (!date) return 'Latest';
+
+  const now = new Date();
+  // Never show future dates for articles
+  if (date.getTime() > now.getTime()) {
+    date = now;
+  }
 
   return date.toLocaleDateString('en-IN', {
     day: 'numeric',
@@ -87,8 +93,14 @@ export function formatEditorialDate(dateInput: any): string {
 }
 
 export function formatFullDateTime(dateInput: any): string {
-  const date = parseDate(dateInput);
+  let date = parseDate(dateInput);
   if (!date) return 'Published Recently';
+
+  const now = new Date();
+  // Never show future time for published articles (clamp to current moment)
+  if (date.getTime() > now.getTime()) {
+    date = now;
+  }
 
   const dateStr = date.toLocaleDateString('en-IN', {
     weekday: 'short',

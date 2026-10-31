@@ -11,6 +11,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { parseDate } from './date-utils';
 import { NewsArticle, ShortVideo, JobListing, MarketplaceListing, PosterAd } from '@/types';
 
 export function serializeData<T>(docData: any): T {
@@ -20,6 +21,24 @@ export function serializeData<T>(docData: any): T {
       result[key] = result[key].toDate().toISOString();
     }
   }
+
+  // Guard against future-dated or timezone-drifted publishedAt
+  if (result.publishedAt) {
+    const pubDate = parseDate(result.publishedAt);
+    const upDate = parseDate(result.updatedAt);
+    const now = new Date();
+
+    if (pubDate && pubDate.getTime() > now.getTime()) {
+      // If publishedAt is set in the future (e.g. CMS scheduler or UTC offset bug):
+      // Use updatedAt if it represents the real publish moment (<= now), otherwise clamp to now
+      if (upDate && upDate.getTime() <= now.getTime()) {
+        result.publishedAt = upDate.toISOString();
+      } else {
+        result.publishedAt = now.toISOString();
+      }
+    }
+  }
+
   return result as T;
 }
 
