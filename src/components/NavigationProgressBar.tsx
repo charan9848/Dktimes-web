@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 export default function NavigationProgressBar() {
@@ -8,16 +8,45 @@ export default function NavigationProgressBar() {
   const searchParams = useSearchParams();
   const [isNavigating, setIsNavigating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [opacity, setOpacity] = useState(1);
+  const timersRef = useRef<NodeJS.Timeout[]>([]);
+  const isInitialMount = useRef(true);
+
+  // Helper to clear all scheduled timers
+  const clearAllTimers = () => {
+    timersRef.current.forEach((t) => clearTimeout(t));
+    timersRef.current = [];
+  };
+
+  const completeAndHide = () => {
+    clearAllTimers();
+    setProgress(100);
+
+    // Fade out smoothly
+    const fadeTimer = setTimeout(() => {
+      setOpacity(0);
+    }, 150);
+
+    // Completely reset and hide after fade finishes
+    const hideTimer = setTimeout(() => {
+      setIsNavigating(false);
+      setProgress(0);
+      setOpacity(1);
+    }, 350);
+
+    timersRef.current.push(fadeTimer, hideTimer);
+  };
 
   // Complete progress bar whenever route or searchParams change
   useEffect(() => {
-    setProgress(100);
-    const timer = setTimeout(() => {
-      setIsNavigating(false);
-      setProgress(0);
-    }, 250);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
 
-    return () => clearTimeout(timer);
+    completeAndHide();
+
+    return () => clearAllTimers();
   }, [pathname, searchParams]);
 
   // Listen to all link clicks to trigger progress immediately
@@ -50,22 +79,26 @@ export default function NavigationProgressBar() {
       if (href === currentUrl) return;
 
       // Start navigation bar immediately
+      clearAllTimers();
+      setOpacity(1);
       setIsNavigating(true);
-      setProgress(25);
+      setProgress(30);
 
-      const t1 = setTimeout(() => setProgress(60), 150);
-      const t2 = setTimeout(() => setProgress(85), 450);
+      const t1 = setTimeout(() => setProgress(70), 200);
+      const t2 = setTimeout(() => setProgress(90), 500);
 
-      // Clean up if navigation aborts
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
+      // Failsafe auto-complete: Never stay stuck on screen under ANY circumstance
+      const safetyTimer = setTimeout(() => {
+        completeAndHide();
+      }, 1800);
+
+      timersRef.current.push(t1, t2, safetyTimer);
     };
 
     document.addEventListener('click', handleAnchorClick, { capture: true });
     return () => {
       document.removeEventListener('click', handleAnchorClick, { capture: true });
+      clearAllTimers();
     };
   }, []);
 
@@ -77,11 +110,14 @@ export default function NavigationProgressBar() {
       aria-hidden="true"
     >
       <div
-        className="h-full bg-gradient-to-r from-[#1C3D5A] via-sky-500 to-amber-500 transition-all ease-out duration-300 shadow-[0_0_8px_rgba(28,61,90,0.6)]"
+        className="h-full bg-gradient-to-r from-[#1C3D5A] via-sky-500 to-amber-500 shadow-[0_0_10px_rgba(28,61,90,0.8)]"
         style={{
           width: `${progress}%`,
-          opacity: progress === 100 ? 0 : 1,
-          transitionProperty: 'width, opacity',
+          opacity: opacity,
+          transition:
+            progress === 100
+              ? 'width 150ms ease-out, opacity 200ms ease-in'
+              : 'width 250ms ease-out',
         }}
       />
     </div>
